@@ -1,2 +1,1 @@
-web: gunicorn KeyLearning.wsgi
-
+web: gunicorn KeyLearning.wsgi --log-file - 
