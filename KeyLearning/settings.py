@@ -132,8 +132,7 @@ USE_TZ = True
 STATIC_URL = '/static/'
 db_from_env = dj_database_url.config(conn_max_age=500)
 DATABASES['default'].update(db_from_env)
-DATABASES['default'] =  dj_database_url.config()
-
+DATABASES = {'default': dj_database_url.config(default='postgres://postgres:14243160@localhost:5432/postgres')}
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 STATIC_ROOT = os.path.join(PROJECT_ROOT, 'staticfiles')
