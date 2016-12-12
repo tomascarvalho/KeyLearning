@@ -26,7 +26,7 @@ SECRET_KEY = 'mthr+vbn#&_8rz3gyohxi57%k0w%#o#xnvu=zh-1u7bav!+%fs'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['klearning.herokuapp.com', 'tomcarvalhoc.com']
 
 
 # Application definition
