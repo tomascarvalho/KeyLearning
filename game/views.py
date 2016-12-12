@@ -10,7 +10,7 @@ from django.urls import reverse
 
 
 def index(request):
-    leaderboard = Leaderboard.objects.order_by('-points')[:10]
+    leaderboard = Leaderboard.objects.order_by('points')[:10]
     context = {
         'leaderboard': leaderboard,
     }

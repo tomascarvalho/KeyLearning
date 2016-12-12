@@ -146,6 +146,8 @@ var num_lives = 3; // Number of lives
 var previous = 1; // Previous note (if we dont want repetition).
                   // If we want repetition, change to 0
 var intervalsize = 150; // Interval in which we want to create new notes
+var speed = 0; // Initial speed
+var max_speed = 25;
 
 
 //Aliases
@@ -332,7 +334,9 @@ function setup() {
     scoreText = new PIXI.Text('Score: 0');
     scoreText.position.set(0, 0)
     gameCore.addChild(scoreText);
-
+    speedText = new PIXI.Text('Speed: 0');
+    speedText.position.set(width/3, 0);
+    gameCore.addChild(speedText);
     stage.addChild(gameCore);
 
     for (var i = 0; i < num_lives; i++)
@@ -454,6 +458,7 @@ function gameObjectsLoop()
     }
     // We update the score
     scoreText.setText('Score: '+frameCounter);
+    speedText.setText('Speed: '+speed);
     stage.addChild(gameCore);
     stage.addChild(gameObjects);
     //Render the stage
@@ -508,7 +513,11 @@ function test(note)
 function everyinterval(n) {
     if ((frameCounter / n) % 1 == 0)
     {
-        intervalsize = 150;
+        if (speed < max_speed)
+        {
+            intervalsize = intervalsize - speed;
+            speed = speed + 1;
+        }
         return true;
     }
     return false;
