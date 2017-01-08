@@ -6,8 +6,6 @@
     <script type="text/javascript" src="{% static 'game/js/jquery.js' %}"></script>
     <script type="text/javascript" src="{% static 'game/js/bootstrap.min.js' %}"></script>
     <link rel="stylesheet" type="text/css" href="{% static 'game/css/bootstrap.min.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'game/css/extracss.css' %}">
-
     <title> Key Learning </title>
 
 
@@ -16,6 +14,7 @@
     <!--<canvas id = "canvas"></canvas>-->
 <script type="text/javascript" src="{% static 'game/js/ajax.js' %}"></script>
 <script type="text/javascript" src="{% static 'game/js/pixi.min.js' %}"></script>
+<script type="text/javascript" src="{% static 'game/js/audiosynth.js' %}"></script>
 
 
 <div name="divHrefB" style="height: 0px;width: 0px;overflow:hidden;">
@@ -41,7 +40,7 @@
         <p>You need to have an account if you want us to save your highscores!</p>
         </div>
         <div class="tab-pane fade active in" id="signin">
-            <form class="form-horizontal" action="{% url 'login' %}" method="post">
+            <form class="form-horizontal" action="{% url 'log_in' %}" method="post">
                 {% csrf_token %}
             <fieldset>
 
@@ -136,6 +135,12 @@
         <input id = "score" name ="score" value ="">
     </form>
 </div>
+<div>
+    <form action = "{% url 'log_out' %}" method = "post">
+        {% csrf_token %}
+        <button type = "submit"> Log Out </button>
+    </form>
+</div>
 <script>
 
 //Global Variables
@@ -149,8 +154,14 @@ var intervalsize = 150; // Interval in which we want to create new notes
 var speed = 0; // Initial speed
 var max_speed = 25;
 
+var is_free_mode = 0; // is_free_mode?
+var in_game = 0;
 
-//Aliases
+// Synth Stuff
+Synth instanceof AudioSynth;
+var piano = Synth.createInstrument('piano');
+
+// PIXI Aliases
 var Container = PIXI.Container,
     autoDetectRenderer = PIXI.autoDetectRenderer,
     loader = PIXI.loader,
@@ -181,7 +192,9 @@ PIXI.loader
       "{% static 'game/images/quarter.png' %}",
       "{% static 'game/images/c_quarter.png' %}",
       "{% static 'game/images/clef.png' %}",
-      "{% static 'game/images/heart.png' %}"
+      "{% static 'game/images/heart.png' %}",
+      "{% static 'game/images/keyboard_notes.png' %}",
+      "{% static 'game/images/keyboard.png' %}"
   ])
   .on("progress", loadProgressHandler)
   .load(init);
@@ -209,7 +222,7 @@ function init()
     endGameScreen.visible = false;
     console.log("Menu: "+menu.visible);
     console.log("Game objects: "+gameObjects.visible);
-    console.log("Eng Game: "+ endGameScreen.visible);
+    console.log("End Game: "+ endGameScreen.visible);
 
     style_title = {
         fontFamily : 'Courier',
@@ -283,10 +296,18 @@ function init()
     subtitle_badges.on('mousedown', login);
     subtitle_badges.on('touchstart', login);
 
+    var subtitle_freeMode = new PIXI.Text('free mode', style_subtitle);
+    subtitle_freeMode.x = 120;
+    subtitle_freeMode.y = 220;
+    subtitle_freeMode.interactive = true;
+    subtitle_freeMode.on('mousedown', freeMode);
+    subtitle_freeMode.on('touchstart', freeMode);
+
     menu.addChild(title);
     menu.addChild(subtitle_play);
     menu.addChild(subtitle_highScores);
     menu.addChild(subtitle_badges);
+    menu.addChild(subtitle_freeMode);
 
     stage.addChild(menu);
 
@@ -296,9 +317,10 @@ function init()
 
 function login()
 {
-    userID = "{{userID}}"
-    console.log(userID);
-    if (userID == "")
+    userID = "{{ request.user.id }}"
+
+
+    if (userID == "None")
         document.getElementById('modalformbutton').click();
     else {
         setup();
@@ -322,6 +344,7 @@ function setup() {
 
     // Everytime we start the game, lives_left returns to what is should be
     lives_left = num_lives;
+    in_game = 1;
 
     // We create a clef and add it to the game core objects
     clef = new Sprite(resources["{% static 'game/images/clef.png' %}"].texture);
@@ -329,6 +352,13 @@ function setup() {
     clef.width = width;
     clef.position.set(0, height/2 - (clef.height)/2);
     gameCore.addChild(clef);
+
+    // We create a keyboard and add it to the game core objects
+    keyboard = new Sprite(resources["{% static 'game/images/keyboard.png' %}"].texture)
+    keyboard.height = (height - (clef.height))/2;
+    keyboard.width = width/2;
+    keyboard.position.set(width/2 - keyboard.width/2, height-keyboard.height+1);
+    gameCore.addChild(keyboard);
 
     // We create the score text and we add it to the game core objects
     scoreText = new PIXI.Text('Score: 0');
@@ -469,36 +499,197 @@ function gameObjectsLoop()
 
 }
 
+function freeMode()
+{
+    // When we change "screens" we have to set objects visible so we can seem them
+    menu.visible = false;
+    gameObjects.visible = true;
+    lives.visble = true;
+    gameCore.visible = true;
+    endGameScreen.visible = false;
+    highScoresScreen.visible = false;
+
+    lives_left = 1;
+    is_free_mode = 1;
+
+    // We create a keyboard and add it to the game core objects
+    keyboard = new Sprite(resources["{% static 'game/images/keyboard_notes.png' %}"].texture)
+    keyboard.height = (height/4) *3;
+    keyboard.width = (width/4) *3;
+    keyboard.position.set(width/2 - keyboard.width/2, height-keyboard.height+1);
+    gameCore.addChild(keyboard);
+
+    exitText = new PIXI.Text('Exit');
+    exitText.position.set(0, 0)
+    exitText.interactive = true;
+    exitText.on('mousedown', exitFreeMode);
+    exitText.on('touchstart', exitFreeMode);
+    gameCore.addChild(exitText);
+
+
+
+    stage.addChild(gameCore);
+    //Render the stage
+    renderer.render(stage);
+
+    //Start freeModeObjects Loop
+    freeModeObjectsLoop();
+}
+
+function freeModeObjectsLoop()
+{
+    // We lost...
+
+    if (lives_left <= 0)
+    {
+        endFreeGame();
+        return;
+    }
+
+
+    // Spawn more notes every "intervalsize"
+
+
+    stage.addChild(gameCore);
+    stage.addChild(gameObjects);
+    //Render the stage
+    renderer.render(stage);
+    // Loop this function @ 60 fps
+    requestAnimationFrame(freeModeObjectsLoop);
+
+
+}
+
+function exitFreeMode()
+{
+    lives_left = 0;
+}
+
 window.addEventListener("keydown", checkKeyDown, true);
+
+renderer.view.addEventListener("click", clickKeyboard, true);
+
+function clickKeyboard(ev)
+{
+    // Defining the notes position
+    k_width = (keyboard.width)/7
+
+    c_leftBound = renderer.view.offsetLeft + keyboard.x;
+    c_rightBound = c_leftBound + k_width;
+    white_upperBound = renderer.view.offsetTop + keyboard.y;
+    white_lowerBound = renderer.view.offsetTop +height;
+
+    d_leftBound = c_rightBound;
+    d_rightBound = d_leftBound + k_width;
+
+    e_leftBound = d_rightBound;
+    e_rightBound = e_leftBound + k_width;
+
+    f_leftBound = e_rightBound;
+    f_rightBound = f_leftBound + k_width;
+
+    g_leftBound = f_rightBound;
+    g_rightBound = g_leftBound + k_width;
+
+    a_leftBound = g_rightBound;
+    a_rightBound = a_leftBound + k_width;
+
+    b_leftBound = a_rightBound;
+    b_rightBound = b_leftBound + k_width;
+
+    console.log("Height = "+ keyboard.height);
+
+    if (in_game || is_free_mode)
+    {
+        console.log((renderer.view.offsetLeft+ ev.x) + " " + (ev.y - renderer.view.offsetTop));
+        if (ev.x > c_leftBound && ev.x < c_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('C');
+        if (ev.x > d_leftBound && ev.x < d_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('D');
+        if (ev.x > e_leftBound && ev.x < e_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('E');
+        if (ev.x > f_leftBound && ev.x < f_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('F');
+        if (ev.x > g_leftBound && ev.x < g_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('G');
+        if (ev.x > a_leftBound && ev.x < a_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('A');
+        if (ev.x > b_leftBound && ev.x < b_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+            play('B');
+
+
+    }
+
+}
 
 function checkKeyDown(ev)
 {
     // Map Keys to lines:
     var code = ev.keyCode;
     console.log(code);
-    // If there are any notes on scree... if not, we can assume it was a misclick and don't punish the player
-    if (gameObjects.children.length > 1)
+    // If there are any notes on screen... if not, we can assume it was a misclick and don't punish the player
+    if (gameObjects.children.length > 1 || lives_left > 0)
     {
         console.log("I am pressing: " + code)
-        switch (code)
+        if (!is_free_mode)
         {
-            case 65: test(C); break; // A pressed on KEYBOARD
-            case 83: test(D); break; // S pressed on KEYBOARD
-            case 68: test(E); break; // D pressed on KEYBOARD
-            case 70: test(F); break; // F pressed on KEYBOARD
-            case 71: test(G); break; // G pressed on KEYBOARD
-            case 72: test(A); break; // H pressed on KEYBOARD
-            case 74: test(B); break; // J pressed on KEYBOARD
-            default: break;
+            switch (code)
+            {
+                case 65: test(C); break; // A pressed on KEYBOARD
+                case 83: test(D); break; // S pressed on KEYBOARD
+                case 68: test(E); break; // D pressed on KEYBOARD
+                case 70: test(F); break; // F pressed on KEYBOARD
+                case 71: test(G); break; // G pressed on KEYBOARD
+                case 72: test(A); break; // H pressed on KEYBOARD
+                case 74: test(B); break; // J pressed on KEYBOARD
+                default: break;
+            }
         }
+        else
+        {
+            switch (code)
+            {
+                case 65: play('C'); break; // A pressed on KEYBOARD
+                case 83: play('D'); break; // S pressed on KEYBOARD
+                case 68: play('E'); break; // D pressed on KEYBOARD
+                case 70: play('F'); break; // F pressed on KEYBOARD
+                case 71: play('G'); break; // G pressed on KEYBOARD
+                case 72: play('A'); break; // H pressed on KEYBOARD
+                case 74: play('B'); break; // J pressed on KEYBOARD
+                case 87: play('C#'); break; // W pressed on KEYBOARD
+                case 69: play('D#'); break; // E pressed on KEYBOARD
+                case 84: play('F#'); break; // T pressed on KEYBOARD
+                case 89: play('G#'); break; // Y pressed on KEYBOARD
+                case 85: play('A#'); break; // W pressed on KEYBOARD
+                default: break;
+            }
+        }
+
     }
 
 
 }
 
+function play(note)
+{
+    piano.play(note, 4, 2);
+}
+
 function test(note)
 {
     console.log("I am pressing: " + note + " and checking against: "+ gameObjects.children[0].y);
+    switch (note)
+    {
+        case C: piano.play('C', 4, 2); break;
+        case D: piano.play('D', 4, 2); break;
+        case E: piano.play('E', 4, 2); break;
+        case F: piano.play('F', 4, 2); break;
+        case G: piano.play('G', 4, 2); break;
+        case A: piano.play('A', 4, 2); break;
+        case B: piano.play('B', 4, 2); break;
+    }
+
+
     if (gameObjects.children[0].y == note)
         gameObjects.children.splice(0, 1);
 
@@ -526,16 +717,15 @@ function everyinterval(n) {
 
 function endGame()
 {
+    lives_left = 0;
     menu.visible = false;
     gameObjects.visible = false;
     lives.visble = false;
     gameCore.visible = false;
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
+    in_game = 0;
 
-    console.log("Menu: "+menu.visible);
-    console.log("Game objects: "+gameObjects.visible);
-    console.log("Eng Game: "+ endGameScreen.visible);
     var finalScore= new PIXI.Text('Score: '+frameCounter, style_subtitle);
     finalScore.x = 20;
     finalScore.y = 140;
@@ -549,6 +739,31 @@ function endGame()
 
     endGameScreen.addChild(title);
     endGameScreen.addChild(finalScore);
+    endGameScreen.addChild(backToMenu);
+    stage.addChild(endGameScreen);
+    renderer.render(stage);
+
+}
+
+function endFreeGame()
+{
+    is_free_mode = 0;
+    lives_left = 0;
+    menu.visible = false;
+    gameObjects.visible = false;
+    lives.visble = false;
+    gameCore.visible = false;
+    endGameScreen.visible = true;
+    highScoresScreen.visible = false;
+
+    var backToMenu = new PIXI.Text('Menu', style_subtitle);
+    backToMenu.x = 120;
+    backToMenu.y = 180;
+    backToMenu.interactive = true;
+    backToMenu.on('mousedown', init);
+    backToMenu.on('touchstart', init);
+
+
     endGameScreen.addChild(backToMenu);
     stage.addChild(endGameScreen);
     renderer.render(stage);

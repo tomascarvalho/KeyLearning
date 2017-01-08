@@ -31,14 +31,14 @@ ALLOWED_HOSTS = ['localhost','klearning.herokuapp.com', 'tomcarvalhoc.com', 'www
 
 # Application definition
 
-INSTALLED_APPS = [
-    'game.apps.GameConfig',
+INSTALLED_APPS = [    
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'game.apps.GameConfig',
 ]
 
 MIDDLEWARE = [

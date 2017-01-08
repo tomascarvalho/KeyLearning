@@ -2,47 +2,51 @@ from django.shortcuts import render
 
 # Create your views here.
 
-from .models import User, Leaderboard
+from .models import Leaderboard
+from django.contrib.auth.models import User
 
 from django.shortcuts import get_object_or_404, render
 from django.http import HttpResponseRedirect, HttpResponse
 from django.urls import reverse
-
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 
 def index(request):
-    leaderboard = Leaderboard.objects.order_by('points')[:10]
+    leaderboard = Leaderboard.objects.order_by('-points')[:10]
     context = {
         'leaderboard': leaderboard,
     }
     return render(request, 'game/index.html', context)
 
-def login(request):
+def log_in(request):
     try:
-        username = User.objects.get(name = request.POST['name'])
+        username = User.objects.get(username = request.POST['name'])
     except (KeyError, User.DoesNotExist):
         # Redisplay the question voting form.
         return render(request, 'game/index.html', {
             'error_message': "Invalid Username.",
         })
     else:
-        if (username.password == request.POST['password']):
-            return render(request, 'game/index.html', {
-                'userID': username.id,
-            })
+        name = request.POST['name']
+        password = request.POST['password']
+        user = authenticate(username = name, password = password)
+        print (request.POST['name'] + " "+ request.POST['password'])
+
+        if user is not None:
+            login(request, user)
+            return render(request, 'game/index.html')
     return render(request, 'game/index.html', {
         'error_message': "Invalid Password.",
     })
 
 def signup(request):
     try:
-        username = User.objects.get(name = request.POST['username'])
+        username = User.objects.get(username = request.POST['username'])
     except (KeyError, User.DoesNotExist):
         if (request.POST['s_password'] == request.POST['reenterpassword']):
-            new_user = User(name = request.POST['username'], password = request.POST['s_password'])
-            new_user.save()
-            return render(request, 'game/index.html', {
-                'userID': new_user.id,
-            })
+            user = User.objects.create_user(request.POST.get('username', False), request.POST.get('email', False), request.POST.get('password', False))
+            login(request, user)
+            return render(request, 'game/index.html')
     else:
         return render(request, 'game/index.html', {
             'error_message': "Username already in use",
@@ -53,22 +57,28 @@ def signup(request):
 
 def save_score(request):
     try:
-        username = User.objects.get(pk = request.POST['id'])
+        username = User.objects.get(pk = request.user.id)
     except (KeyError, User.DoesNotExist):
         # Redisplay the question voting form.
         leaderboard = Leaderboard.objects.order_by('-points')[:10]
-        print("OH SHIT")
-        a = request.POST.get("id")
-        print(a)
         context = {
             'leaderboard': leaderboard,
         }
         return render(request, 'game/index.html', context)
     else:
-        new_entry = Leaderboard(user = username.name, points = request.POST['score'])
+        new_entry = Leaderboard(user = username, points = int(request.POST['score']))
         new_entry.save()
         leaderboard = Leaderboard.objects.order_by('-points')[:10]
         context = {
             'leaderboard': leaderboard,
         }
         return render(request, 'game/index.html', context)
+
+
+def log_out(request):
+    logout(request)
+    leaderboard = Leaderboard.objects.order_by('-points')[:10]
+    context = {
+        'leaderboard': leaderboard,
+    }
+    return render(request, 'game/index.html', context)
