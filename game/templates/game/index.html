@@ -128,6 +128,7 @@
     </div>
   </div>
 </div>
+
 <div name="divHrefB" style="height: 0px;width: 0px;overflow:hidden;">
     <form id = "saveScore" action="{% url 'save_score' %}" method="post">
         {% csrf_token %}
@@ -135,6 +136,24 @@
         <input id = "score" name ="score" value ="">
     </form>
 </div>
+
+<div name="divHrefB" style="height: 0px;width: 0px;overflow:hidden;">
+    <form id = "saveSuccess" action="{% url 'save_success' %}" method="post">
+        {% csrf_token %}
+        <input id="id" name="id" value = "{{userID}}"/>
+        <input id = "success" name ="success" value =""/>
+        <input id = "scen_id" name = "scen_id" value = ""/>
+    </form>
+</div>
+
+<div name="divHrefB" style="height: 0px;width: 0px;overflow:hidden;">
+    <form id = "saveNotes" action="{% url 'save_notes' %}" method="post">
+        {% csrf_token %}
+        <input id="notes" name="notes" value = ""/>
+        <input id = "creator" name ="creator" value ="">
+    </form>
+</div>
+
 <div>
     <form action = "{% url 'log_out' %}" method = "post">
         {% csrf_token %}
@@ -148,11 +167,12 @@ var height = 256; // Size of Canvas
 var width = 512; // Size of Canvas
 var backgroundColor = 0x1099bb;
 var num_lives = 3; // Number of lives
+var lives_left = num_lives; // Number of lives left
 var previous = 1; // Previous note (if we dont want repetition).
                   // If we want repetition, change to 0
 var intervalsize = 150; // Interval in which we want to create new notes
 var speed = 0; // Initial speed
-var max_speed = 25;
+var max_speed = 15;
 
 var is_free_mode = 0; // is_free_mode?
 var in_game = 0;
@@ -186,6 +206,7 @@ var gameObjects = new PIXI.DisplayObjectContainer();
 var lives = new PIXI.DisplayObjectContainer();
 var endGameScreen = new PIXI.DisplayObjectContainer();
 var highScoresScreen = new PIXI.DisplayObjectContainer();
+var scenariosScreen = new PIXI.DisplayObjectContainer();
 
 PIXI.loader
   .add([
@@ -194,7 +215,7 @@ PIXI.loader
       "{% static 'game/images/clef.png' %}",
       "{% static 'game/images/heart.png' %}",
       "{% static 'game/images/keyboard_notes.png' %}",
-      "{% static 'game/images/keyboard.png' %}"
+      "{% static 'game/images/keyboard_big.png' %}"
   ])
   .on("progress", loadProgressHandler)
   .load(init);
@@ -214,15 +235,24 @@ function loadProgressHandler(loader, resource) {
 
 function init()
 {
+    user_isStaff = "{{ request.user.is_staff }}";
+    if (user_isStaff == "True")
+        user_is_staff = true;
+    else {
+        user_is_staff = false;
+    }
+    if (user_is_staff)
+        console.log("User is staff");
     menu.visible = true;
     gameObjects.visible = false;
     lives.visble = false;
     gameCore.visible = false;
     highScoresScreen.visible = false;
     endGameScreen.visible = false;
-    console.log("Menu: "+menu.visible);
-    console.log("Game objects: "+gameObjects.visible);
-    console.log("End Game: "+ endGameScreen.visible);
+    scenariosScreen.visible = false;
+    // console.log("Menu: "+menu.visible);
+    // console.log("Game objects: "+gameObjects.visible);
+    // console.log("End Game: "+ endGameScreen.visible);
 
     style_title = {
         fontFamily : 'Courier',
@@ -288,7 +318,6 @@ function init()
     subtitle_highScores.on('mousedown', showHighScores);
     subtitle_highScores.on('touchstart', showHighScores);
 
-
     var subtitle_badges = new PIXI.Text('badges', style_subtitle);
     subtitle_badges.x = 120;
     subtitle_badges.y = 180;
@@ -317,32 +346,34 @@ function init()
 
 function login()
 {
-    userID = "{{ request.user.id }}"
-
+    userID = "{{ request.user.id }}";
 
     if (userID == "None")
         document.getElementById('modalformbutton').click();
     else {
-        setup();
+        displayScenarios();
     }
 }
 
-function setup() {
+function setup(scenario_name, scenario_notes, scenario_id, num_lives) {
 
     // When we change "screens" we have to set objects visible so we can seem them
+
     menu.visible = false;
     gameObjects.visible = true;
     lives.visble = true;
     gameCore.visible = true;
     endGameScreen.visible = false;
     highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
 
-    console.log("Menu: "+menu.visible);
-    console.log("Game objects: "+gameObjects.visible);
-    console.log("Eng Game: "+ endGameScreen.visible);
+    // console.log("Menu: "+menu.visible);
+    // console.log("Game objects: "+gameObjects.visible);
+    // console.log("Eng Game: "+ endGameScreen.visible);
 
 
     // Everytime we start the game, lives_left returns to what is should be
+
     lives_left = num_lives;
     in_game = 1;
 
@@ -354,20 +385,24 @@ function setup() {
     gameCore.addChild(clef);
 
     // We create a keyboard and add it to the game core objects
-    keyboard = new Sprite(resources["{% static 'game/images/keyboard.png' %}"].texture)
+    keyboard = new Sprite(resources["{% static 'game/images/keyboard_big.png' %}"].texture)
     keyboard.height = (height - (clef.height))/2;
-    keyboard.width = width/2;
+    keyboard.width = (width/6) * 5;
     keyboard.position.set(width/2 - keyboard.width/2, height-keyboard.height+1);
     gameCore.addChild(keyboard);
 
     // We create the score text and we add it to the game core objects
-    scoreText = new PIXI.Text('Score: 0');
-    scoreText.position.set(0, 0)
-    gameCore.addChild(scoreText);
-    speedText = new PIXI.Text('Speed: 0');
-    speedText.position.set(width/3, 0);
-    gameCore.addChild(speedText);
-    stage.addChild(gameCore);
+    if (scenario_name == "Competition")
+    {
+        scoreText = new PIXI.Text('Score: 0');
+        scoreText.position.set(0, 0)
+        gameCore.addChild(scoreText);
+        speedText = new PIXI.Text('Speed: 0');
+        speedText.position.set(width/3, 0);
+        gameCore.addChild(speedText);
+        stage.addChild(gameCore);
+    }
+
 
     for (var i = 0; i < num_lives; i++)
     {
@@ -381,37 +416,15 @@ function setup() {
     }
     stage.addChild(lives);
 
-    // DEBUG
-    //console.log("Clef X: "+ clef.x + " Clef Y: "+clef.y + "Size: " + clef.height);
 
     //Render the stage
     renderer.render(stage);
 
-    //We will need this to count frames
-    frameCounter = 0;
-    //Start gameObjects Loop
-    gameObjectsLoop();
 
-}
-
-function gameObjectsLoop()
-{
-    // We lost...
-
-    if (lives_left <= 0)
-    {
-        endGame();
-        return;
-    }
-    // DEBUG
-    //console.log("Frame Counter: " + frameCounter);
-
-    // Update frameCounter
-    frameCounter += 1;
-
-    var lines = clef.height / 16;
-    var notes_w = 1/20 * width;
-    var notes_h = 1/10 * height;
+    // Our Notes:
+    lines = clef.height / 16;
+    notes_w = 1/20 * width;
+    notes_h = 1/10 * height;
 
     // Starting from bottom to up, this is how different notes are placed
     // (in relation to the sheet):
@@ -423,6 +436,195 @@ function gameObjectsLoop()
      G = clef.y + lines * 11 - notes_h - height/100;
      A = clef.y + lines * 10 - notes_h - height/100;
      B = clef.y + lines * 09 - notes_h - height/100;
+     C_2 = clef.y + lines * 08 - notes_h - height/100;
+     D_2 = clef.y + lines * 07 - notes_h - height/100;
+     E_2 = clef.y + lines * 06 - notes_h - height/100;
+     F_2 = clef.y + lines * 05 - notes_h - height/100;
+     G_2 = clef.y + lines * 04 - notes_h - height/100;
+     A_2 = clef.y + lines * 03 - notes_h - height/100;
+     B_2 = clef.y + lines * 02 - notes_h - height/100;
+
+    //We will need this to count frames
+    frameCounter = 0;
+    //Start gameObjects Loop
+    console.log("Scenario name at setup is : "+scenario_name);
+    if (scenario_name == "Competition")
+        randomMode();
+    else
+    {
+        scenario_notes = scenario_notes.replace(/(&quot\;)/g,"\"");
+        scen_id = scenario_id;
+        notes = JSON.parse(scenario_notes);
+        createMode(scenario_name);
+    }
+
+
+}
+
+function createMode(scenario_name)
+{
+    stop = 0;
+    frameCounter +=1;
+    if (lives_left <= 0)
+    {
+        endCustomGame();
+        return;
+    }
+    if (notes.length > 0)
+    {
+        if (notes[0].frame == frameCounter)
+        {
+            switch (notes[0].note)
+            {
+                case "C": next_note_y = C; break;
+                case "D": next_note_y = D; break;
+                case "E": next_note_y = E; break;
+                case "F": next_note_y = F; break;
+                case "G": next_note_y = G; break;
+                case "A": next_note_y = A; break;
+                case "B": next_note_y = B; break;
+                case "C_2": next_note_y = C_2; break;
+                case "D_2": next_note_y = D_2; break;
+                case "E_2": next_note_y = E_2; break;
+                case "F_2": next_note_y = F_2; break;
+                case "G_2": next_note_y = G_2; break;
+                case "A_2": next_note_y = A_2; break;
+                case "B_2": next_note_y = B_2; break;
+            }
+
+            notes.splice(0,1);
+
+            if (next_note_y == C)
+            {
+                var c_quarter = new Sprite(resources["{% static 'game/images/c_quarter.png' %}"].texture);
+                c_quarter.height = notes_h;
+                c_quarter.width = notes_w;
+                c_quarter.position.set(width, next_note_y);
+                gameObjects.addChild(c_quarter);
+            }
+            // Is a regular quarter note
+            else
+            {
+                var quarter = new Sprite(resources["{% static 'game/images/quarter.png' %}"].texture);
+                quarter.height = notes_h;
+                quarter.width = notes_w;
+                quarter.position.set(width, next_note_y);
+                gameObjects.addChild(quarter);
+            }
+        }
+    }
+
+    if (notes.length == 0 && gameObjects.children.length < 1)
+    {
+
+        endCustomGame();
+        return;
+    }
+
+    for (var i = 0; i < gameObjects.children.length; i++)
+    {
+        // We make them move
+        gameObjects.children[i].x -= 1;
+        // If we x <= 0, then it moves out of screen and we lose a life. So:
+        if (gameObjects.children[i].x <= 0)
+        {
+            // We remove the note from the gameObjects objects
+            gameObjects.children.splice(i,1);
+            // We decrement the lives left
+            lives_left -= 1;
+
+            // We remove 1 heart from the gameObjects objects so it desappears from screen
+            lives.children.splice(lives_left, 1);
+
+
+        }
+    }
+
+    stage.addChild(gameCore);
+    stage.addChild(gameObjects);
+    //Render the stage
+    renderer.render(stage);
+    // Loop this function @ 60 fps
+    if (!stop)
+        requestAnimationFrame(createMode);
+
+
+}
+
+function endCustomGame()
+{
+    if (lives_left > 0)
+        success = 1;
+    else {
+        success = 0;
+    }
+    lives_left = 0;
+    menu.visible = false;
+    gameObjects.visible = false;
+    lives.visble = false;
+    gameCore.visible = false;
+    endGameScreen.visible = true;
+    highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
+    in_game = 0;
+
+    if (success)
+    {
+        var finalScore= new PIXI.Text('Success!', style_subtitle);
+        finalScore.x = 20;
+        finalScore.y = 140;
+    }
+    else {
+        var finalScore= new PIXI.Text('Try Again!', style_subtitle);
+        finalScore.x = 20;
+        finalScore.y = 140;
+    }
+
+
+    var backToMenu = new PIXI.Text('Menu', style_subtitle);
+    backToMenu.x = 120;
+    backToMenu.y = 180;
+    backToMenu.interactive = true;
+    backToMenu.on('mousedown', saveSuccess);
+    backToMenu.on('touchstart', saveSuccess);
+
+    endGameScreen.addChild(title);
+    endGameScreen.addChild(finalScore);
+    endGameScreen.addChild(backToMenu);
+    stage.addChild(endGameScreen);
+    renderer.render(stage);
+
+}
+
+function saveSuccess()
+{
+    if (!success)
+        return init();
+
+    var form = document.getElementById("saveSuccess");
+    document.getElementById("scen_id").value = scen_id;
+    document.getElementById("success").value = success;
+
+    form.submit();
+
+
+
+}
+
+function randomMode()
+{
+    // We lost...
+
+    if (lives_left <= 0)
+    {
+        endGame();
+        return;
+    }
+
+    // Update frameCounter
+    frameCounter += 1;
+
+
 
     // Spawn more notes every "intervalsize"
     if (frameCounter == 1 || everyinterval(intervalsize))
@@ -464,9 +666,6 @@ function gameObjectsLoop()
 
 
     }
-    // DEBUG
-    //for (var i = 0; i< gameObjects.children.length; i++)
-    //    console.log(gameObjects.children[i]);
     // For every note in the gameObjects
     for (var i = 0; i < gameObjects.children.length; i++)
     {
@@ -494,7 +693,7 @@ function gameObjectsLoop()
     //Render the stage
     renderer.render(stage);
     // Loop this function @ 60 fps
-    requestAnimationFrame(gameObjectsLoop);
+    requestAnimationFrame(randomMode);
 
 
 }
@@ -504,16 +703,17 @@ function freeMode()
     // When we change "screens" we have to set objects visible so we can seem them
     menu.visible = false;
     gameObjects.visible = true;
-    lives.visble = true;
+    lives.visble = false;
     gameCore.visible = true;
     endGameScreen.visible = false;
     highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
 
     lives_left = 1;
     is_free_mode = 1;
 
     // We create a keyboard and add it to the game core objects
-    keyboard = new Sprite(resources["{% static 'game/images/keyboard_notes.png' %}"].texture)
+    keyboard = new Sprite(resources["{% static 'game/images/keyboard_big.png' %}"].texture)
     keyboard.height = (height/4) *3;
     keyboard.width = (width/4) *3;
     keyboard.position.set(width/2 - keyboard.width/2, height-keyboard.height+1);
@@ -526,8 +726,23 @@ function freeMode()
     exitText.on('touchstart', exitFreeMode);
     gameCore.addChild(exitText);
 
+    // Enabling Staff User to save new "game mode"
+    if (user_is_staff)
+    {
+        var d = new Date();
+        counter = 0;
+        notes_array = [];
+
+        creator_name = "{{ user.username }}";
+
+        creator_date = d;
+        creator = creator_name + ""+creator_date;
+
+    }
 
 
+    //frames
+    frameCounter = 0;
     stage.addChild(gameCore);
     //Render the stage
     renderer.render(stage);
@@ -539,15 +754,13 @@ function freeMode()
 function freeModeObjectsLoop()
 {
     // We lost...
-
+    frameCounter += 1;
     if (lives_left <= 0)
     {
         endFreeGame();
         return;
     }
 
-
-    // Spawn more notes every "intervalsize"
 
 
     stage.addChild(gameCore);
@@ -562,8 +775,15 @@ function freeModeObjectsLoop()
 
 function exitFreeMode()
 {
+    if (user_is_staff)
+    {
+        my_JSONString = JSON.stringify(notes_array);
+    }
+
     lives_left = 0;
 }
+
+
 
 window.addEventListener("keydown", checkKeyDown, true);
 
@@ -572,51 +792,117 @@ renderer.view.addEventListener("click", clickKeyboard, true);
 function clickKeyboard(ev)
 {
     // Defining the notes position
-    k_width = (keyboard.width)/7
-
-    c_leftBound = renderer.view.offsetLeft + keyboard.x;
-    c_rightBound = c_leftBound + k_width;
-    white_upperBound = renderer.view.offsetTop + keyboard.y;
-    white_lowerBound = renderer.view.offsetTop +height;
-
-    d_leftBound = c_rightBound;
-    d_rightBound = d_leftBound + k_width;
-
-    e_leftBound = d_rightBound;
-    e_rightBound = e_leftBound + k_width;
-
-    f_leftBound = e_rightBound;
-    f_rightBound = f_leftBound + k_width;
-
-    g_leftBound = f_rightBound;
-    g_rightBound = g_leftBound + k_width;
-
-    a_leftBound = g_rightBound;
-    a_rightBound = a_leftBound + k_width;
-
-    b_leftBound = a_rightBound;
-    b_rightBound = b_leftBound + k_width;
-
-    console.log("Height = "+ keyboard.height);
-
-    if (in_game || is_free_mode)
+    if (in_game)
     {
-        console.log((renderer.view.offsetLeft+ ev.x) + " " + (ev.y - renderer.view.offsetTop));
-        if (ev.x > c_leftBound && ev.x < c_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('C');
-        if (ev.x > d_leftBound && ev.x < d_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('D');
-        if (ev.x > e_leftBound && ev.x < e_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('E');
-        if (ev.x > f_leftBound && ev.x < f_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('F');
-        if (ev.x > g_leftBound && ev.x < g_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('G');
-        if (ev.x > a_leftBound && ev.x < a_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('A');
-        if (ev.x > b_leftBound && ev.x < b_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
-            play('B');
+        k_width = (keyboard.width)/15
 
+        c_leftBound = renderer.view.offsetLeft + keyboard.x;
+        c_rightBound = c_leftBound + k_width;
+        white_upperBound = renderer.view.offsetTop + keyboard.y;
+        white_lowerBound = renderer.view.offsetTop +height;
+
+        d_leftBound = c_rightBound;
+        d_rightBound = d_leftBound + k_width;
+
+        e_leftBound = d_rightBound;
+        e_rightBound = e_leftBound + k_width;
+
+        f_leftBound = e_rightBound;
+        f_rightBound = f_leftBound + k_width;
+
+        g_leftBound = f_rightBound;
+        g_rightBound = g_leftBound + k_width;
+
+        a_leftBound = g_rightBound;
+        a_rightBound = a_leftBound + k_width;
+
+        b_leftBound = a_rightBound;
+        b_rightBound = b_leftBound + k_width;
+
+        c_2_leftBound = b_rightBound;
+        c_2_rightBound = c_2_leftBound + key_width;
+
+        d_2_leftBound = c_2_rightBound;
+        d_2_rightBound = d_2_leftBound + key_width;
+
+        e_2_leftBound = d_2_rightBound;
+        e_2_rightBound = e_2_leftBound + k_width;
+
+        f_2_leftBound = e_2_rightBound;
+        f_2_rightBound = f_2_leftBound + k_width;
+
+        g_2_leftBound = f_2_rightBound;
+        g_2_rightBound = g_2_leftBound + k_width;
+
+        a_2_leftBound = g_2_rightBound;
+        a_2_rightBound = a_2_leftBound + k_width;
+
+        b_2_leftBound = a_2_rightBound;
+        b_2_rightBound = b_2_leftBound + k_width;
+
+        //console.log("Height = "+ keyboard.height);
+
+        if (is_free_mode)
+        {
+            // console.log((renderer.view.offsetLeft+ ev.x) + " " + (ev.y - renderer.view.offsetTop));
+            if (ev.x > c_leftBound && ev.x < c_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('C', 4);
+            if (ev.x > d_leftBound && ev.x < d_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('D', 4);
+            if (ev.x > e_leftBound && ev.x < e_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('E', 4);
+            if (ev.x > f_leftBound && ev.x < f_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('F', 4);
+            if (ev.x > g_leftBound && ev.x < g_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('G', 4);
+            if (ev.x > a_leftBound && ev.x < a_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('A', 4);
+            if (ev.x > b_leftBound && ev.x < b_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('B', 4);
+            if (ev.x > c_2_leftBound && ev.x < c_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('C', 5);
+            if (ev.x > d_2_leftBound && ev.x < d_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('D', 5);
+            if (ev.x > e_2_leftBound && ev.x < e_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('E', 5);
+            if (ev.x > g_2_leftBound && ev.x < g_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('G', 5);
+            if (ev.x > a_2_leftBound && ev.x < a_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('A', 5);
+            if (ev.x > b_2_leftBound && ev.x < b_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                play('B', 5);
+
+        }
+        else if (in_game)
+        {
+            if (ev.x > c_leftBound && ev.x < c_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(C, 4);
+            if (ev.x > d_leftBound && ev.x < d_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(D, 4);
+            if (ev.x > e_leftBound && ev.x < e_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(E, 4);
+            if (ev.x > f_leftBound && ev.x < f_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(F, 4);
+            if (ev.x > g_leftBound && ev.x < g_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(G, 4);
+            if (ev.x > a_leftBound && ev.x < a_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(A, 4);
+            if (ev.x > b_leftBound && ev.x < b_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(B, 4);
+            if (ev.x > c_2_leftBound && ev.x < c_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(C_2, 5);
+            if (ev.x > d_2_leftBound && ev.x < d_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(D_2, 5);
+            if (ev.x > e_2_leftBound && ev.x < e_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(E_2, 5);
+            if (ev.x > g_2_leftBound && ev.x < g_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(G_2, 5);
+            if (ev.x > a_2_leftBound && ev.x < a_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(A_2, 5);
+            if (ev.x > b_2_leftBound && ev.x < b_2_rightBound && ev.y > white_upperBound && ev.y < white_lowerBound)
+                test(B_2, 5);
+
+        }
 
     }
 
@@ -626,36 +912,51 @@ function checkKeyDown(ev)
 {
     // Map Keys to lines:
     var code = ev.keyCode;
-    console.log(code);
+    //console.log(code);
     // If there are any notes on screen... if not, we can assume it was a misclick and don't punish the player
     if (gameObjects.children.length > 1 || lives_left > 0)
     {
-        console.log("I am pressing: " + code)
+        //console.log("I am pressing: " + code)
         if (!is_free_mode)
         {
             switch (code)
             {
-                case 65: test(C); break; // A pressed on KEYBOARD
-                case 83: test(D); break; // S pressed on KEYBOARD
-                case 68: test(E); break; // D pressed on KEYBOARD
-                case 70: test(F); break; // F pressed on KEYBOARD
-                case 71: test(G); break; // G pressed on KEYBOARD
-                case 72: test(A); break; // H pressed on KEYBOARD
-                case 74: test(B); break; // J pressed on KEYBOARD
+                case 65: test(C, 4); break; // A pressed on KEYBOARD
+                case 83: test(D, 4); break; // S pressed on KEYBOARD
+                case 68: test(E, 4); break; // D pressed on KEYBOARD
+                case 70: test(F, 4); break; // F pressed on KEYBOARD
+                case 71: test(G, 4); break; // G pressed on KEYBOARD
+                case 72: test(A, 4); break; // H pressed on KEYBOARD
+                case 74: test(B, 4); break; // J pressed on KEYBOARD
+                case 75: test(C_2, 5); break; // K pressed on KEYBOARD
+                case 76: test(D_2, 5); break; // L pressed on KEYBOARD
+                case 74: test(E_2, 5); break; // R pressed on KEYBOARD
+                case 82: test(F_2, 5); break;// T pressed on KEYBOARD
+                case 84: test(G_2, 5); break; // Y pressed on KEYBOARD
+                case 89: test(A_2, 5); break; // U pressed on KEYBOARD
+                case 85: test(B_2, 5); break; // I pressed on KEYBOARD
                 default: break;
             }
+
         }
         else
         {
             switch (code)
             {
-                case 65: play('C'); break; // A pressed on KEYBOARD
-                case 83: play('D'); break; // S pressed on KEYBOARD
-                case 68: play('E'); break; // D pressed on KEYBOARD
-                case 70: play('F'); break; // F pressed on KEYBOARD
-                case 71: play('G'); break; // G pressed on KEYBOARD
-                case 72: play('A'); break; // H pressed on KEYBOARD
-                case 74: play('B'); break; // J pressed on KEYBOARD
+                case 65: play('C', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "C"; notes_array.push(new_note);} break; // A pressed on KEYBOARD
+                case 83: play('D', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "D"; notes_array.push(new_note);} break; // S pressed on KEYBOARD
+                case 68: play('E', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "E"; notes_array.push(new_note);} break;// D pressed on KEYBOARD
+                case 70: play('F', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "F"; notes_array.push(new_note);} break;// F pressed on KEYBOARD
+                case 71: play('G', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "G"; notes_array.push(new_note);} break; // G pressed on KEYBOARD
+                case 72: play('A', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "A"; notes_array.push(new_note);} break; // H pressed on KEYBOARD
+                case 74: play('B', 4); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "B"; notes_array.push(new_note);} break; // J pressed on KEYBOARD
+                case 75: play('C', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "C_2"; notes_array.push(new_note);} break; // K pressed on KEYBOARD
+                case 76: play('D', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "D_2"; notes_array.push(new_note);} break; // L pressed on KEYBOARD
+                case 74: play('E', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "E_2"; notes_array.push(new_note);} break; // R pressed on KEYBOARD
+                case 82: play('F', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "F_2"; notes_array.push(new_note);} break;// T pressed on KEYBOARD
+                case 84: play('G', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "G_2"; notes_array.push(new_note);} break; // Y pressed on KEYBOARD
+                case 89: play('A', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "A_2"; notes_array.push(new_note);} break; // U pressed on KEYBOARD
+                case 85: play('B', 5); if(user_is_staff){var new_note = {}; new_note.frame = frameCounter; new_note.note = "B_2"; notes_array.push(new_note);} break; // I pressed on KEYBOARD
                 case 87: play('C#'); break; // W pressed on KEYBOARD
                 case 69: play('D#'); break; // E pressed on KEYBOARD
                 case 84: play('F#'); break; // T pressed on KEYBOARD
@@ -670,23 +971,30 @@ function checkKeyDown(ev)
 
 }
 
-function play(note)
+function play(note, pitch)
 {
-    piano.play(note, 4, 2);
+    piano.play(note, pitch, 2);
 }
 
-function test(note)
+function test(note, pitch)
 {
-    console.log("I am pressing: " + note + " and checking against: "+ gameObjects.children[0].y);
+    //console.log("I am pressing: " + note + " and checking against: "+ gameObjects.children[0].y);
     switch (note)
     {
-        case C: piano.play('C', 4, 2); break;
-        case D: piano.play('D', 4, 2); break;
-        case E: piano.play('E', 4, 2); break;
-        case F: piano.play('F', 4, 2); break;
-        case G: piano.play('G', 4, 2); break;
-        case A: piano.play('A', 4, 2); break;
-        case B: piano.play('B', 4, 2); break;
+        case C: piano.play('C', pitch, 2); break;
+        case D: piano.play('D', pitch, 2); break;
+        case E: piano.play('E', pitch, 2); break;
+        case F: piano.play('F', pitch, 2); break;
+        case G: piano.play('G', pitch, 2); break;
+        case A: piano.play('A', pitch, 2); break;
+        case B: piano.play('B', pitch, 2); break;
+        case C_2: piano.play('C', pitch, 2); break;
+        case D_2: piano.play('D', pitch, 2); break;
+        case E_2: piano.play('E', pitch, 2); break;
+        case F_2: piano.play('F', pitch, 2); break;
+        case G_2: piano.play('G', pitch, 2); break;
+        case A_2: piano.play('A', pitch, 2); break;
+        case B_2: piano.play('B', pitch, 2); break;
     }
 
 
@@ -724,6 +1032,7 @@ function endGame()
     gameCore.visible = false;
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
     in_game = 0;
 
     var finalScore= new PIXI.Text('Score: '+frameCounter, style_subtitle);
@@ -755,6 +1064,7 @@ function endFreeGame()
     gameCore.visible = false;
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
 
     var backToMenu = new PIXI.Text('Menu', style_subtitle);
     backToMenu.x = 120;
@@ -763,11 +1073,30 @@ function endFreeGame()
     backToMenu.on('mousedown', init);
     backToMenu.on('touchstart', init);
 
+    if (user_is_staff)
+    {
+        var save = new PIXI.Text('Save', style_subtitle);
+        save.x = 120;
+        save.y = 130;
+        save.interactive = true;
+        save.on('mousedown', saveNewNotes);
+        save.on('touchstart', saveNewNotes);
+        endGameScreen.addChild(save);
+    }
+
 
     endGameScreen.addChild(backToMenu);
     stage.addChild(endGameScreen);
     renderer.render(stage);
 
+}
+
+function saveNewNotes()
+{
+    var form = document.getElementById("saveNotes");
+    document.getElementById("notes").value = my_JSONString;
+    document.getElementById("creator").value = creator;
+    form.submit();
 }
 
 
@@ -789,6 +1118,7 @@ function showHighScores()
     gameCore.visible = false;
     endGameScreen.visible = false;
     highScoresScreen.visible = true;
+    scenariosScreen.visible = false;
     var i = 1;
     var x = 10;
     var y = 90;
@@ -819,6 +1149,65 @@ function showHighScores()
     stage.addChild(highScoresScreen);
     renderer.render(stage);
 
+}
+
+function displayScenarios()
+{
+    menu.visible = false;
+    gameObjects.visible = false;
+    lives.visble = false;
+    gameCore.visible = false;
+    endGameScreen.visible = false;
+    highScoresScreen.visible = false;
+    scenariosScreen.visible = true;
+    var i = 1;
+    var x = 10;
+    var y = 90;
+    var title = new PIXI.Text('Scenarios',style_title);
+    title.x = 30;
+    title.y = 20;
+    scenariosScreen.addChild(title);
+    {% for scenario in scenarios %}
+        completed = 0;
+        {% if completed is not None %}
+            {% for c in completed %}
+                if ("{{ c.scenario.id }}" == "{{scenario.id}}")
+                {
+                    completed = 1;
+
+                }
+            {% endfor %}
+        {% endif %}
+        if (completed)
+            var scen = new PIXI.Text("{{ scenario.name }} - Completed", style_score);
+        else {
+            var scen = new PIXI.Text("{{ scenario.name }}", style_score);
+        }
+        i = i +1 ;
+        scen.x = x;
+        scen.y = y;
+        y = y+ 20;
+        scen.interactive = true;
+        scen.on('mousedown',function (){
+            setup("{{ scenario.name }}", "{{ scenario.notes }}", "{{ scenario.id }}", "{{ scenario.num_lives }}");
+        });
+        scenariosScreen.addChild(scen);
+        if (i == 6)
+        {
+            x = x+width/2;
+            y = 100;
+        }
+    {% endfor %}
+
+    var backToMenu = new PIXI.Text('Menu', style_subtitle);
+    backToMenu.x = 120;
+    backToMenu.y = height - 60;
+    backToMenu.interactive = true;
+    backToMenu.on('mousedown', init);
+    backToMenu.on('touchstart', init);
+    scenariosScreen.addChild(backToMenu);
+    stage.addChild(scenariosScreen);
+    renderer.render(stage);
 }
 
 
