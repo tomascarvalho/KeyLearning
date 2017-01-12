@@ -1,12 +1,12 @@
-## Key Learning
+# Key Learning
 
 ##Introduction
 
 Browser game in HTML5 canvas for kids. The objective is for kids to learn musical scales and the notion of a piano.
 
-## Features
+# Features
 
-# For Users
+## For Users
 
 Scenarios:
 - Competition Mode, where the user objective is to do the biggest amount of points
@@ -22,7 +22,7 @@ Highscores:
 Badges:
 - Users can win badges by acomplishing different objectives
 
-# For Admins/Staff
+## For Admins/Staff
 
 Scenario Creation:
 - Members of the staff can create new scenarios in Free Mode, by playing the piano and saving what they played
@@ -33,13 +33,13 @@ Scenario Customization:
 Website/database Management:
 - In the admin website, admins and staff can add, modify and delete users, leaderboards and scenarios.
 
-## Technologies
+# Technologies
 
-#Backend:
+## Backend:
 - Django
-#Database:
+## Database:
 - PostgreSQL
-#Front-End:
+## Front-End:
 - HTML & CSS
 - Javascript
 - PIXI.js
