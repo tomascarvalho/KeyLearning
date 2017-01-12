@@ -1,6 +1,5 @@
 # Key Learning
 
-##Introduction
 
 Browser game in HTML5 canvas for kids. The objective is for kids to learn musical scales and the notion of a piano.
 
@@ -37,8 +36,10 @@ Website/database Management:
 
 ## Backend:
 - Django
+
 ## Database:
 - PostgreSQL
+
 ## Front-End:
 - HTML & CSS
 - Javascript
