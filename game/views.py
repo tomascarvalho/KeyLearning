@@ -2,7 +2,7 @@ from django.shortcuts import render
 
 # Create your views here.
 
-from .models import Leaderboard, Scenarios, Scenario_Completed_By
+from .models import Leaderboard, Scenarios, Scenario_Completed_By, Badge
 from django.contrib.auth.models import User
 
 from django.shortcuts import get_object_or_404, render
@@ -16,12 +16,14 @@ def index(request):
     leaderboard = Leaderboard.objects.order_by('-points')[:10]
     if request.user.is_authenticated():
         completed = Scenario_Completed_By.objects.filter(user = User.objects.get(pk = request.user.id))
+        badges = Badge.objects.filter(user = User.objects.get(pk = request.user.id))
     else:
         completed = None
     context = {
         'leaderboard': leaderboard,
         'scenarios': active_scenarios,
         'completed': completed,
+        'badges': badges,
     }
     return render(request, 'game/index.html', context)
 
@@ -70,8 +72,37 @@ def save_score(request):
         # Redisplay the question voting form.
         return HttpResponseRedirect('/game/')
     else:
+        score = int(request.POST['score'])
         new_entry = Leaderboard(user = username, points = int(request.POST['score']))
         new_entry.save()
+        badges = Badge.objects.filter(user = username, scenario = Scenarios.objects.get(name = "Competition")).order_by('-points').first()
+        if (badges is None):
+            new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1')
+            new_entry.save()
+            badges = Badge.objects.filter(user = username, scenario = Scenarios.objects.get(name = "Competition")).order_by('-points').first()
+
+            if score > badges.points:
+                if score > 500:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 500)
+                    new_entry.save()
+                elif score > 2500:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 2500)
+                    new_entry.save()
+                elif score > 5000:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 5000)
+                    new_entry.save()
+        else:
+            if score > badges.points:
+                if score > 500:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 500)
+                    new_entry.save()
+                elif score > 2500:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 2500)
+                    new_entry.save()
+                elif score > 5000:
+                    new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 5000)
+                    new_entry.save()
+
         return HttpResponseRedirect('/game/')
 
 @login_required
@@ -100,6 +131,8 @@ def save_success(request):
                 return HttpResponseRedirect('/game/')
             else:
                 new_entry = Scenario_Completed_By(user = user, scenario = scenario)
+                new_entry.save()
+                new_entry = Badge(user = user, scenario = scenario, badge_type = '2')
                 new_entry.save()
                 return HttpResponseRedirect('/game/')
     return HttpResponseRedirect('/game/')

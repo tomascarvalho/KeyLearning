@@ -207,6 +207,7 @@ var lives = new PIXI.DisplayObjectContainer();
 var endGameScreen = new PIXI.DisplayObjectContainer();
 var highScoresScreen = new PIXI.DisplayObjectContainer();
 var scenariosScreen = new PIXI.DisplayObjectContainer();
+var badgesScreen = new PIXI.DisplayObjectContainer();
 
 PIXI.loader
   .add([
@@ -215,7 +216,12 @@ PIXI.loader
       "{% static 'game/images/clef.png' %}",
       "{% static 'game/images/heart.png' %}",
       "{% static 'game/images/keyboard_notes.png' %}",
-      "{% static 'game/images/keyboard_big.png' %}"
+      "{% static 'game/images/keyboard_big.png' %}",
+      "{% static 'game/images/Badge_Amateur.png' %}",
+      "{% static 'game/images/Badge_Pro.png' %}",
+      "{% static 'game/images/Badge_Prodigy.png' %}",
+      "{% static 'game/images/Badge_First.png' %}",
+
   ])
   .on("progress", loadProgressHandler)
   .load(init);
@@ -250,6 +256,7 @@ function init()
     highScoresScreen.visible = false;
     endGameScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
     // console.log("Menu: "+menu.visible);
     // console.log("Game objects: "+gameObjects.visible);
     // console.log("End Game: "+ endGameScreen.visible);
@@ -299,6 +306,14 @@ function init()
         wordWrap : true,
         wordWrapWidth : 440
     };
+    style_badge = {
+        fontFamily : 'Courier',
+        fontSize : '10px',
+        fill : '#F7EDCA',
+        stroke : '#4a1850',
+        strokeThickness : 2,
+
+    };
 
     title = new PIXI.Text('Key Learning',style_title);
     title.x = 30;
@@ -322,8 +337,8 @@ function init()
     subtitle_badges.x = 120;
     subtitle_badges.y = 180;
     subtitle_badges.interactive = true;
-    subtitle_badges.on('mousedown', login);
-    subtitle_badges.on('touchstart', login);
+    subtitle_badges.on('mousedown', displayBadges);
+    subtitle_badges.on('touchstart', displayBadges);
 
     var subtitle_freeMode = new PIXI.Text('free mode', style_subtitle);
     subtitle_freeMode.x = 120;
@@ -366,6 +381,7 @@ function setup(scenario_name, scenario_notes, scenario_id, num_lives) {
     endGameScreen.visible = false;
     highScoresScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
 
     // console.log("Menu: "+menu.visible);
     // console.log("Game objects: "+gameObjects.visible);
@@ -388,6 +404,7 @@ function setup(scenario_name, scenario_notes, scenario_id, num_lives) {
     keyboard = new Sprite(resources["{% static 'game/images/keyboard_big.png' %}"].texture)
     keyboard.height = (height - (clef.height))/2;
     keyboard.width = (width/6) * 5;
+    console.log("Height: "+ keyboard.height + " Width: "+keyboard.width);
     keyboard.position.set(width/2 - keyboard.width/2, height-keyboard.height+1);
     gameCore.addChild(keyboard);
 
@@ -566,6 +583,7 @@ function endCustomGame()
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
     in_game = 0;
 
     if (success)
@@ -708,6 +726,7 @@ function freeMode()
     endGameScreen.visible = false;
     highScoresScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
 
     lives_left = 1;
     is_free_mode = 1;
@@ -820,10 +839,10 @@ function clickKeyboard(ev)
         b_rightBound = b_leftBound + k_width;
 
         c_2_leftBound = b_rightBound;
-        c_2_rightBound = c_2_leftBound + key_width;
+        c_2_rightBound = c_2_leftBound + k_width;
 
         d_2_leftBound = c_2_rightBound;
-        d_2_rightBound = d_2_leftBound + key_width;
+        d_2_rightBound = d_2_leftBound + k_width;
 
         e_2_leftBound = d_2_rightBound;
         e_2_rightBound = e_2_leftBound + k_width;
@@ -1033,6 +1052,8 @@ function endGame()
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
+
     in_game = 0;
 
     var finalScore= new PIXI.Text('Score: '+frameCounter, style_subtitle);
@@ -1065,6 +1086,7 @@ function endFreeGame()
     endGameScreen.visible = true;
     highScoresScreen.visible = false;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
 
     var backToMenu = new PIXI.Text('Menu', style_subtitle);
     backToMenu.x = 120;
@@ -1119,6 +1141,7 @@ function showHighScores()
     endGameScreen.visible = false;
     highScoresScreen.visible = true;
     scenariosScreen.visible = false;
+    badgesScreen.visible = false;
     var i = 1;
     var x = 10;
     var y = 90;
@@ -1160,6 +1183,7 @@ function displayScenarios()
     endGameScreen.visible = false;
     highScoresScreen.visible = false;
     scenariosScreen.visible = true;
+    badgesScreen.visible = false;
     var i = 1;
     var x = 10;
     var y = 90;
@@ -1209,6 +1233,79 @@ function displayScenarios()
     stage.addChild(scenariosScreen);
     renderer.render(stage);
 }
+
+function displayBadges()
+{
+    menu.visible = false;
+    gameObjects.visible = false;
+    lives.visble = false;
+    gameCore.visible = false;
+    endGameScreen.visible = false;
+    highScoresScreen.visible = false;
+    scenariosScreen.visible = false;
+    badgesScreen.visible = true;
+    var i = 1;
+    var x = 10;
+    var y = 120;
+    var title = new PIXI.Text('Badges',style_title);
+    title.x = 30;
+    title.y = 20;
+    badgesScreen.addChild(title);
+    {% if badges is not None %}
+        {% for badge in badges %}
+
+
+            {% if badge.badge_type == '1' %}
+                {% if badge.points == 0 %}
+                    var badge_sprite = new Sprite(resources["{% static 'game/images/Badge_First.png' %}"].texture);
+
+                {% elif badge.points == 500 %}
+                    var badge_sprite = new Sprite(resources["{% static 'game/images/Badge_Amateur.png' %}"].texture);
+
+                {% elif badge.points == 2500 %}
+                    var badge_sprite = new Sprite(resources["{% static 'game/images/Badge_Pro.png' %}"].texture);
+
+                {% elif badge.points == 5000 %}
+                    var badge_sprite = new Sprite(resources["{% static 'game/images/Badge_Prodigy.png' %}"].texture);
+
+                {% endif %}
+                badge_sprite.width = 100;
+                badge_sprite.height = 100;
+                badge_sprite.x = x;
+                badge_sprite.y = y-65;
+                badgesScreen.addChild(badge_sprite);
+
+            {% else %}
+                var badg_descript = new PIXI.Text("Completed {{ badge.scenario.name }}", style_badge);
+                badg_descript.x = x;
+                badg_descript.y = y;
+                badgesScreen.addChild(badg_descript);
+            {% endif %}
+
+            i = i +1 ;
+
+            x = x + width/3;
+
+
+            if (x >= width -30)
+            {
+                x = 10;
+                y = y + 20;
+            }
+        {% endfor %}
+    {% endif %}
+
+    var backToMenu = new PIXI.Text('Menu', style_subtitle);
+    backToMenu.x = 120;
+    backToMenu.y = height - 60;
+    backToMenu.interactive = true;
+    backToMenu.on('mousedown', init);
+    backToMenu.on('touchstart', init);
+    badgesScreen.addChild(backToMenu);
+    stage.addChild(badgesScreen);
+    renderer.render(stage);
+}
+
 
 
 </script>

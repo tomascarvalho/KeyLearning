@@ -35,3 +35,16 @@ class Scenario_Completed_By(models.Model):
     user = models.ForeignKey(User)
     def __str__(self):
         return self.user.username + " completed "+ self.scenario.name
+
+@python_2_unicode_compatible
+class Badge(models.Model):
+    condition_choices = (
+        ('1', 'Points'),
+        ('2', 'Scenario'),
+    )
+    badge_type = models.CharField(max_length = 2, choices = condition_choices)
+    points = models.IntegerField(default = 0)
+    scenario = models.ForeignKey(Scenarios)
+    user = models.ForeignKey(User)
+    def __str__(self):
+        return self.user.username + " " + self.scenario.name + " " + str(self.points)
