@@ -19,6 +19,7 @@ def index(request):
         badges = Badge.objects.filter(user = User.objects.get(pk = request.user.id))
     else:
         completed = None
+        badges = None
     context = {
         'leaderboard': leaderboard,
         'scenarios': active_scenarios,
@@ -130,10 +131,14 @@ def save_success(request):
             except (KeyError, Scenarios.DoesNotExist):
                 return HttpResponseRedirect('/game/')
             else:
-                new_entry = Scenario_Completed_By(user = user, scenario = scenario)
-                new_entry.save()
-                new_entry = Badge(user = user, scenario = scenario, badge_type = '2')
-                new_entry.save()
+                try:
+                    entry_exists = Scenario_Completed_By.objects.get(user = user, scenario = scenario)
+                except (KeyError, Scenario_Completed_By.DoesNotExist):
+                    new_entry = Scenario_Completed_By(user = user, scenario = scenario)
+                    new_entry.save()
+                    new_entry = Badge(user = user, scenario = scenario, badge_type = '2')
+                    new_entry.save()
+                    return HttpResponseRedirect('/game/')
                 return HttpResponseRedirect('/game/')
     return HttpResponseRedirect('/game/')
 
