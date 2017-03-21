@@ -54,7 +54,7 @@ def signup(request):
         username = User.objects.get(username = request.POST['username'])
     except (KeyError, User.DoesNotExist):
         if (request.POST['s_password'] == request.POST['reenterpassword']):
-            user = User.objects.create_user(request.POST.get('username', False), request.POST.get('email', False), request.POST.get('password', False))
+            user = User.objects.create_user(request.POST.get('username', False), request.POST.get('email', False), request.POST.get('s_password', False))
             login(request, user)
             return HttpResponseRedirect('/game/')
     else:
@@ -94,13 +94,13 @@ def save_score(request):
                     new_entry.save()
         else:
             if score > badges.points:
-                if score > 500:
+                if score > 500 and badges.points < 500:
                     new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 500)
                     new_entry.save()
-                elif score > 2500:
+                elif score > 2500 and badges.points < 2500 :
                     new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 2500)
                     new_entry.save()
-                elif score > 5000:
+                elif score > 5000 and badges.points < 5000:
                     new_entry = Badge(user = username, scenario = Scenarios.objects.get(name = "Competition"), badge_type = '1', points = 5000)
                     new_entry.save()
 
